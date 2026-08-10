@@ -181,7 +181,7 @@ export default function FriendsScreen({ navigation }: Props) {
           renderItem={renderFriend}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: 20 }}
-          scrollEnabled
+          scrollEnabled={false}
         />
       )}
     </ScreenContainer>

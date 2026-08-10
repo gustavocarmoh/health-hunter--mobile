@@ -78,7 +78,7 @@ export const api = {
 
   createMission(input: { name: string; category: Mission['category']; difficulty: Difficulty }): Promise<Mission> {
     return resolveAfter({
-      id: Date.now(),
+      id: Date.now().toString(),
       name: input.name.trim(),
       category: input.category,
       difficulty: input.difficulty,

@@ -40,7 +40,7 @@ export default function DashboardScreen() {
 
   const dailyMissions = missions.filter((m) => m.daily);
   const dailyDone = dailyMissions.filter((m) => m.done).length;
-  const percent = xpPercent(user.xp, user.xpToNext);
+  const percent = xpPercent(user.xpInCurrentLevel, user.xpToNext);
 
   const exploreLinks: { key: keyof RootStackParamList; label: string; icon: React.ReactNode }[] = [
     { key: 'Events', label: 'Eventos', icon: <CalendarIcon /> },
@@ -58,7 +58,7 @@ export default function DashboardScreen() {
           <Avatar initial={user.name[0]?.toUpperCase() ?? '?'} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <OrbitronText weight="700" numberOfLines={1} style={{ fontSize: 16, letterSpacing: 1, color: colors.text }}>{user.name}</OrbitronText>
-            <RajdhaniText style={{ fontSize: 12, color: colors.muted }}>Level {user.level} · {user.xp} / {user.xpToNext} XP</RajdhaniText>
+            <RajdhaniText style={{ fontSize: 12, color: colors.muted }}>Level {user.level} · {user.xpInCurrentLevel} / {user.xpToNext} XP</RajdhaniText>
           </View>
           <RankBadge rank={user.rank} />
         </View>

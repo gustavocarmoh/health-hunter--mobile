@@ -30,7 +30,7 @@ import {
   INITIAL_USER,
   ONBOARDING_STEPS,
 } from './data';
-import { api } from '../api/api';
+import { api, calculateLevelFromXp } from '../api/api';
 import { debugBootstrap } from '../utils/debugBootstrap';
 
 interface Toast {
@@ -88,6 +88,7 @@ interface AppState {
   unlockedAchievement: Achievement | null;
   isBootstrapped: boolean;
   bootstrapError: string | null;
+  dailyMissionsLocked: boolean;
 }
 
 interface AppStateContextValue extends AppState {
@@ -96,9 +97,9 @@ interface AppStateContextValue extends AppState {
   toggleSound: () => void;
   toggleHaptics: () => void;
   toggleNotifications: () => void;
-  toggleMission: (id: number) => void;
+  toggleMission: (id: string) => Promise<void>;
   addMission: (m: { name: string; category: Mission['category']; difficulty: Difficulty }) => void;
-  generateDaily: () => void;
+  generateDaily: () => Promise<boolean>;
   saveName: (name: string) => void;
   registerHunter: (name: string) => void;
   refreshDashboard: () => Promise<void>;
@@ -144,6 +145,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [onboardingStep, setOnboardingStep] = useState(0);
   const [confetti, setConfetti] = useState<ConfettiState>({ active: false, levelLabel: '', nonce: 0 });
   const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
+  const [dailyMissionsLocked, setDailyMissionsLocked] = useState(false);
 
   const [isProgressHydrated, setIsProgressHydrated] = useState(false);
 
@@ -164,7 +166,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         guildMembers: boot.guildMembers,
       });
 
-      setUser(boot.user);
+      // Validate and recalculate level from XP to ensure consistency
+      const { level: recalculatedLevel, xpToNext: recalculatedXpToNext, xpInCurrentLevel: recalculatedXpInCurrentLevel } = calculateLevelFromXp(boot.user.xp);
+      const validatedUser = {
+        ...boot.user,
+        level: recalculatedLevel,
+        xpToNext: recalculatedXpToNext,
+        xpInCurrentLevel: recalculatedXpInCurrentLevel,
+      };
+
+      if (boot.user.level !== recalculatedLevel) {
+        console.log(`⚠️  Level mismatch detected. Backend said level ${boot.user.level}, but XP ${boot.user.xp} corresponds to level ${recalculatedLevel}. Using recalculated level.`);
+      }
+
+      setUser(validatedUser);
       setMissions(boot.missions);
       setAchievements(boot.achievements);
       setRanking(boot.ranking);
@@ -187,6 +202,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setStreakHistoryRaw(boot.streakHistoryRaw);
       setStreakFreezes(boot.streakFreezes);
       setStreakProtected(boot.streakProtected);
+      setDailyMissionsLocked(false);
       setBootstrapError(null);
       return true;
     } catch (error) {
@@ -323,42 +339,68 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setUnlockedAchievement(ach);
   }, [hapticsEnabled, soundEnabled]);
 
-  const toggleMission = useCallback((id: number) => {
-    setMissions((prevMissions) => {
-      const target = prevMissions.find((m) => m.id === id);
-      if (!target) return prevMissions;
-      const nextDone = !target.done;
-      const delta = target.done ? -target.xp : target.xp;
-      const updated = prevMissions.map((m) => (m.id === id ? { ...m, done: nextDone } : m));
-      api.updateMissionDone(id, nextDone).catch(() => {});
+  const toggleMission = useCallback(async (id: string): Promise<void> => {
+    // Find mission locally
+    const target = missions.find((m) => m.id === id);
+    if (!target) return;
 
-      if (delta > 0) showToast(`+${delta} XP ganho!`, 'xp');
+    const nextDone = !target.done;
+    const delta = target.done ? -target.xp : target.xp;
 
-      setUser((prevUser) => {
-        const newXp = Math.max(0, prevUser.xp + delta);
-        let nextUser = { ...prevUser, xp: newXp };
-        if (delta > 0) {
-          setAchievements((prevAch) => {
-            const toUnlock = prevAch.find((a) => !a.unlocked && a.unlockAt && newXp >= a.unlockAt);
-            if (!toUnlock) return prevAch;
-            setTimeout(() => showAchievementUnlock(toUnlock), 700);
-            return prevAch.map((a) => (a.id === toUnlock.id ? { ...a, unlocked: true } : a));
-          });
-          if (newXp >= prevUser.xpToNext) {
-            nextUser = {
-              ...nextUser,
-              level: prevUser.level + 1,
-              xpToNext: newXp + 900 + Math.round(Math.random() * 300),
-            };
-            setTimeout(() => triggerLevelUp(nextUser.level), 300);
+    try {
+      // 1. Update backend first
+      console.log('📤 Updating mission on backend:', id, nextDone);
+      await api.updateMissionDone(id, nextDone);
+      console.log('✅ Mission updated on backend');
+
+      // 2. Only update local state AFTER backend confirms
+      setMissions((prevMissions) =>
+        prevMissions.map((m) => (m.id === id ? { ...m, done: nextDone } : m))
+      );
+
+      // 3. Sync XP from backend (backend updated user.xp on mission completion)
+      if (delta !== 0) {
+        console.log('🔄 Syncing user XP from backend...');
+        const updatedUser = await api.auth.getMe();
+
+        setUser((prevUser) => {
+          const newXp = updatedUser.xp || prevUser.xp;
+          let nextUser = { ...prevUser, xp: newXp };
+
+          if (delta > 0) {
+            showToast(`+${delta} XP ganho!`, 'xp');
+            setAchievements((prevAch) => {
+              const toUnlock = prevAch.find((a) => !a.unlocked && a.unlockAt && newXp >= a.unlockAt);
+              if (!toUnlock) return prevAch;
+              setTimeout(() => showAchievementUnlock(toUnlock), 700);
+              return prevAch.map((a) => (a.id === toUnlock.id ? { ...a, unlocked: true } : a));
+            });
+            // Recalculate level and xpToNext based on new XP total
+            const { level: newLevel, xpToNext: newXpToNext, xpInCurrentLevel: newXpInCurrentLevel } = calculateLevelFromXp(newXp);
+            if (newLevel > prevUser.level) {
+              nextUser = {
+                ...nextUser,
+                level: newLevel,
+                xpToNext: newXpToNext,
+                xpInCurrentLevel: newXpInCurrentLevel,
+              };
+              setTimeout(() => triggerLevelUp(newLevel), 300);
+            } else {
+              // Even if no level up, update xpInCurrentLevel
+              nextUser = {
+                ...nextUser,
+                xpInCurrentLevel: newXpInCurrentLevel,
+              };
+            }
           }
-        }
-        return nextUser;
-      });
-
-      return updated;
-    });
-  }, [showToast, showAchievementUnlock, triggerLevelUp]);
+          return nextUser;
+        });
+      }
+    } catch (err) {
+      console.error('❌ Error toggling mission:', err);
+      showToast('Erro ao atualizar missão', 'error');
+    }
+  }, [missions, showToast, showAchievementUnlock, triggerLevelUp]);
 
   const addMission = useCallback((m: { name: string; category: Mission['category']; difficulty: Difficulty }) => {
     api.createMission(m).then((newMission) => {
@@ -367,19 +409,40 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     });
   }, [showToast]);
 
-  const generateDaily = useCallback(() => {
-    api.generateDailyMissions()
-      .then((generated) => {
-        setMissions((prev) => [...prev, ...generated]);
-        showToast('3 novas missões geradas!');
-      })
-      .catch((err: any) => {
+  const generateDaily = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log('🎯 Generating daily missions...');
+      let alreadyGenerated = false;
+
+      try {
+        await api.generateDailyMissions();
+      } catch (err: any) {
         if (err.response?.status === 409) {
-          showToast('Missões diárias já foram geradas hoje', 'info');
+          console.log('⚠️ Missions already generated today');
+          alreadyGenerated = true;
+          setDailyMissionsLocked(true);
         } else {
-          showToast('Erro ao gerar missões', 'error');
+          throw err;
         }
-      });
+      }
+
+      // Recarregar todas as missões do servidor
+      console.log('🔄 Reloading missions from server...');
+      const { missions: missoesCarregadas } = await api.fetchBootstrap();
+      setMissions(missoesCarregadas || []);
+
+      if (alreadyGenerated) {
+        showToast('Limite diário de geração atingido. Volte amanhã!', 'info');
+        return false;
+      } else {
+        showToast('✨ 3 novas missões geradas!');
+        return true;
+      }
+    } catch (err: any) {
+      console.error('Error generating daily missions:', err);
+      showToast('Erro ao gerar missões', 'error');
+      return false;
+    }
   }, [showToast]);
 
   const saveName = useCallback((name: string) => {
@@ -400,7 +463,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       const bootstrapData = await api.fetchBootstrap();
 
       // Atualizar estado com dados do bootstrap
-      if (bootstrapData.user) setUser(bootstrapData.user);
+      if (bootstrapData.user) {
+        // Validate and recalculate level from XP to ensure consistency
+        const { level: recalculatedLevel, xpToNext: recalculatedXpToNext, xpInCurrentLevel: recalculatedXpInCurrentLevel } = calculateLevelFromXp(bootstrapData.user.xp);
+        const validatedUser = {
+          ...bootstrapData.user,
+          level: recalculatedLevel,
+          xpToNext: recalculatedXpToNext,
+          xpInCurrentLevel: recalculatedXpInCurrentLevel,
+        };
+        setUser(validatedUser);
+      }
       if (bootstrapData.guild) setGuild(bootstrapData.guild);
       if (bootstrapData.guildMembers) setGuildMembers(bootstrapData.guildMembers);
       if (bootstrapData.missions) setMissions(bootstrapData.missions);
@@ -517,6 +590,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       onboardingStep,
       confetti,
       unlockedAchievement,
+      dailyMissionsLocked,
       isBootstrapped,
       bootstrapError,
       retryBootstrap,
@@ -547,7 +621,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       soundEnabled, hapticsEnabled, notificationsEnabled, user, missions, achievements, ranking,
       guild, guildMembers, guildQuestProgress, browseGuilds, events, challenges, feedItems,
       streakHistoryRaw, streakFreezes, streakProtected, avatarUri, toast, showOnboarding,
-      onboardingStep, confetti, unlockedAchievement, isBootstrapped, bootstrapError, retryBootstrap,
+      onboardingStep, confetti, unlockedAchievement, dailyMissionsLocked, isBootstrapped, bootstrapError, retryBootstrap,
       showToast, toggleSound, toggleHaptics,
       toggleNotifications, toggleMission, addMission, generateDaily, saveName, registerHunter,
       refreshDashboard, useStreakFreeze, toggleEvent, toggleChallenge, joinGuild, leaveGuild,

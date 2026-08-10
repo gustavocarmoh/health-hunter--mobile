@@ -26,6 +26,7 @@ export const INITIAL_USER: UserState = {
   rank: 'E',
   xp: 0,
   xpToNext: 900,
+  xpInCurrentLevel: 0,
   streak: 0,
   totalMissions: 0,
   achievementsCount: 0,

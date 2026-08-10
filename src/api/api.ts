@@ -23,6 +23,28 @@ import {
 } from '../state/types'
 import { CATEGORY_CONFIG, DIFFICULTY_CONFIG } from '../state/stateConfig'
 
+// Calculate level and xpToNext from total XP
+export function calculateLevelFromXp(totalXp: number): { level: number; xpToNext: number; xpInCurrentLevel: number; xpNeededForNextLevel: number } {
+  let level = 1
+  let xpNeededForNextLevel = 900
+  let xpSpent = 0
+
+  // Each level requires increasingly more XP
+  while (xpSpent + xpNeededForNextLevel <= totalXp) {
+    xpSpent += xpNeededForNextLevel
+    level++
+    xpNeededForNextLevel = Math.floor(900 + (level - 1) * 300) // Scale: 900, 1200, 1500, 1800...
+  }
+
+  // Calculate XP within current level (for progress bar display)
+  const xpInCurrentLevel = totalXp - xpSpent
+  // xpToNext should be the XP needed for CURRENT level (not total)
+  // So progress bar = xpInCurrentLevel / xpToNext * 100%
+  const xpToNext = xpNeededForNextLevel
+
+  return { level, xpToNext, xpInCurrentLevel, xpNeededForNextLevel }
+}
+
 export interface BootstrapData {
   user: UserState
   missions: Mission[]
@@ -46,12 +68,16 @@ export const api = {
       // Fetch user data
       const userRes = await authApi.getMe()
       const rank = (userRes.rank_level || 'E') as any
+      const userXp = userRes.xp || 0
+      const { level, xpToNext, xpInCurrentLevel } = calculateLevelFromXp(userXp)
+
       const user: UserState = {
         name: userRes.name,
-        xp: userRes.xp || 0,
-        level: 1,
+        xp: userXp,
+        level,
         rank: ['E', 'D', 'C', 'B', 'A', 'S', 'SS'].includes(rank) ? rank : 'E',
-        xpToNext: 900,
+        xpToNext,
+        xpInCurrentLevel,
         streak: 0,
         totalMissions: 0,
         achievementsCount: 0,
@@ -80,12 +106,13 @@ export const api = {
         console.log('🏰 Bootstrap: myGuild data:', myGuild)
 
         if (myGuild && myGuild.id) {
+          const guildData = myGuild as any
           guild = {
-            name: myGuild.name,
-            tag: myGuild.tag,
-            level: myGuild.rank ? 1 : 1, // Backend returns 'rank' not 'level'
-            globalRank: myGuild.global_rank || 0,
-            totalXp: myGuild.xp || 0,
+            name: guildData.name,
+            tag: guildData.tag,
+            level: guildData.rank ? 1 : 1, // Backend returns 'rank' not 'level'
+            globalRank: guildData.global_rank || 0,
+            totalXp: guildData.xp || 0,
             weeklyContribution: 0,
           }
           console.log('🏰 Bootstrap: Guild loaded:', guild)
@@ -187,18 +214,22 @@ export const api = {
       let missions: Mission[] = []
       try {
         const missionsRes = await httpClient.get<any>('/missions')
-        missions = (missionsRes.data || []).map((m: any) => ({
-          id: m.id,
-          name: m.title,
+        console.log('📋 Missions response:', missionsRes.data)
+
+        const missionsData = Array.isArray(missionsRes.data) ? missionsRes.data : (missionsRes.data?.missions || [])
+        missions = missionsData.map((m: any) => ({
+          id: m.id || Math.random().toString(),
+          name: m.title || m.name || 'Sem nome',
           category: m.category || 'CUSTOM',
           difficulty: m.difficulty || 'EASY',
-          xp: m.xp_reward || 0,
-          icon: '🎯',
-          done: m.completed || false,
-          daily: true,
+          xp: m.xp_reward || m.xp || 0,
+          icon: m.icon || '🎯',
+          done: m.done ?? false,
+          daily: m.daily ?? true,
         }))
-      } catch (err) {
-        console.error('Error fetching missions:', err)
+        console.log('✅ Missions loaded:', missions.length)
+      } catch (err: any) {
+        console.error('Error fetching missions:', err.message)
         missions = []
       }
 
@@ -232,7 +263,7 @@ export const api = {
 
   async createMission(input: { name: string; category: Mission['category']; difficulty: Difficulty }): Promise<Mission> {
     return {
-      id: Date.now(),
+      id: Date.now().toString(),
       name: input.name.trim(),
       category: input.category,
       difficulty: input.difficulty,
@@ -247,14 +278,21 @@ export const api = {
     try {
       const res = await httpClient.post<any[]>('/missions/generate-daily')
       return res.data
-    } catch (err) {
-      console.error('Error generating daily missions:', err)
-      return []
+    } catch (err: any) {
+      if (err.response?.status !== 409) {
+        console.error('Error generating daily missions:', err)
+      }
+      throw err
     }
   },
 
-  async updateMissionDone(_id: number, _done: boolean): Promise<void> {
-    return
+  async updateMissionDone(id: number | string, done: boolean): Promise<void> {
+    try {
+      await httpClient.patch(`/missions/${id}/done`, { done })
+    } catch (err: any) {
+      console.error('Error updating mission:', err.message)
+      throw err
+    }
   },
 
   async updateEventJoined(_id: number, _joined: boolean): Promise<void> {
@@ -270,6 +308,9 @@ export const api = {
 
   // Friends APIs
   friends: friendsApi,
+
+  // Auth APIs
+  auth: authApi,
 
   // Activities APIs
   activities: activitiesApi,

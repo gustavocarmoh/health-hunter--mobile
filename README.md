@@ -218,7 +218,7 @@ npm run typecheck
 ```ts
 interface AppState {
   // User
-  user: UserState (name, xp, level, rank, coins)
+  user: UserState (name, xp, level, rank, coins, stats)
   
   // Progress
   missions: Mission[]

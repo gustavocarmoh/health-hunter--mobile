@@ -1,5 +1,5 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Text, View, ActivityIndicator } from 'react-native';
 import PressableScale from './PressableScale';
 import { CheckIcon } from './Icons';
 import { OrbitronText, RajdhaniText } from './Typography';
@@ -7,12 +7,22 @@ import { useTheme } from '../theme/ThemeContext';
 import { CATEGORY_CONFIG, DIFFICULTY_CONFIG } from '../state/stateConfig';
 import { Mission } from '../state/types';
 
-export default function MissionRow({ mission, onToggle }: { mission: Mission; onToggle: () => void }) {
+export default function MissionRow({ mission, onToggle }: { mission: Mission; onToggle: () => Promise<void> }) {
   const { colors } = useTheme();
+  const [isLoading, setIsLoading] = useState(false);
   const diff = DIFFICULTY_CONFIG[mission.difficulty] || DIFFICULTY_CONFIG.EASY;
   const cat = CATEGORY_CONFIG[mission.category] || CATEGORY_CONFIG.CUSTOM;
   const catColor = cat.color;
   const done = mission.done;
+
+  const handleToggle = async () => {
+    setIsLoading(true);
+    try {
+      await onToggle();
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View
@@ -52,7 +62,8 @@ export default function MissionRow({ mission, onToggle }: { mission: Mission; on
         </View>
       </View>
       <PressableScale
-        onPress={onToggle}
+        onPress={handleToggle}
+        disabled={isLoading}
         scaleTo={0.85}
         style={{
           width: 44,
@@ -68,9 +79,14 @@ export default function MissionRow({ mission, onToggle }: { mission: Mission; on
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 0 },
           elevation: done ? 4 : 0,
+          opacity: isLoading ? 0.6 : 1,
         }}
       >
-        {done ? <CheckIcon color="#fff" /> : null}
+        {isLoading ? (
+          <ActivityIndicator size="small" color={done ? '#fff' : colors.dim} />
+        ) : done ? (
+          <CheckIcon color="#fff" />
+        ) : null}
       </PressableScale>
     </View>
   );

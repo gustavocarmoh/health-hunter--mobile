@@ -34,7 +34,7 @@ export default function ProfileScreen() {
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
   const [allocatingTo, setAllocatingTo] = useState<string | null>(null);
 
-  const percent = xpPercent(user.xp, user.xpToNext);
+  const percent = xpPercent(user.xpInCurrentLevel, user.xpToNext);
   const record = longestStreak(streakHistoryRaw);
   const streakCellSize = (winWidth - SCREEN_PADDING - STREAK_GAP * (STREAK_COLUMNS - 1)) / STREAK_COLUMNS;
 
@@ -121,7 +121,7 @@ export default function ProfileScreen() {
 
       <ProgressBar percent={percent} animated={false} />
       <RajdhaniText style={{ textAlign: 'center', fontSize: 12, color: colors.muted, marginTop: 10, marginBottom: 16 }}>
-        {user.xp} / {user.xpToNext} XP
+        {user.xpInCurrentLevel} / {user.xpToNext} XP
       </RajdhaniText>
 
       <StatTriple

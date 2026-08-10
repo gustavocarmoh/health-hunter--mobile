@@ -3,7 +3,7 @@ import { Category, Difficulty, GuildRole, PlayerStatKey, Rank, Rarity, RankingSc
 export type { Category, Difficulty, GuildRole, PlayerStatKey, Rank, Rarity, RankingScope, SortBy, ToastKind };
 
 export interface Mission {
-  id: number;
+  id: string;
   name: string;
   category: Category;
   difficulty: Difficulty;
@@ -96,6 +96,7 @@ export interface UserState {
   rank: Rank;
   xp: number;
   xpToNext: number;
+  xpInCurrentLevel: number;
   streak: number;
   totalMissions: number;
   achievementsCount: number;

@@ -14,21 +14,30 @@ import CreateMissionModal from './CreateMissionModal';
 
 export default function MissionsScreen() {
   const { colors } = useTheme();
-  const { missions, toggleMission, generateDaily } = useAppState();
+  const { missions, toggleMission, generateDaily, dailyMissionsLocked } = useAppState();
   const [filter, setFilter] = useState<CategoryFilter>(CATEGORY_FILTER_ALL);
   const [showModal, setShowModal] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const filteredMissions = useMemo(
     () => missions.filter((m) => filter === CATEGORY_FILTER_ALL || m.category === filter),
     [missions, filter]
   );
 
+  const handleGenerateDaily = async () => {
+    if (dailyMissionsLocked || isGenerating) return;
+    setIsGenerating(true);
+    await generateDaily();
+    setIsGenerating(false);
+  };
+
   const header = (
     <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', rowGap: 8, marginTop: 34, marginBottom: 16 }}>
         <SectionLabel color={colors.dim}>MISSIONS</SectionLabel>
         <PressableScale
-          onPress={generateDaily}
+          onPress={handleGenerateDaily}
+          disabled={dailyMissionsLocked || isGenerating}
           scaleTo={0.95}
           style={{
             flexDirection: 'row',
@@ -39,11 +48,14 @@ export default function MissionsScreen() {
             minHeight: 36,
             borderRadius: 20,
             borderWidth: 1,
-            borderColor: 'rgba(251,191,36,.4)',
-            backgroundColor: 'rgba(251,191,36,.1)',
+            borderColor: dailyMissionsLocked ? 'rgba(107, 114, 128, .3)' : 'rgba(251,191,36,.4)',
+            backgroundColor: dailyMissionsLocked ? 'rgba(107, 114, 128, .05)' : 'rgba(251,191,36,.1)',
+            opacity: dailyMissionsLocked ? 0.5 : 1,
           }}
         >
-          <OrbitronText weight="800" style={{ fontSize: 10, letterSpacing: 0.5, color: '#FBBF24' }}>✦ GENERATE DAILY</OrbitronText>
+          <OrbitronText weight="800" style={{ fontSize: 10, letterSpacing: 0.5, color: dailyMissionsLocked ? '#6B7280' : '#FBBF24' }}>
+            {dailyMissionsLocked ? '✓ LIMITE ATINGIDO' : isGenerating ? '⟳ GERANDO...' : '✦ GERAR DIÁRIAS'}
+          </OrbitronText>
         </PressableScale>
       </View>
 
