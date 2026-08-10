@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Solo Leveling Lifestyle",
+    "slug": "solo-leveling-lifestyle",
+    "version": "1.0.0",
+    "sdkVersion": "57.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "solo-leveling-lifestyle",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#05050F",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.sololevelinglifestyle"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#05050F",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.sololevelinglifestyle"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permita acesso às fotos para personalizar seu avatar de Hunter."
+        }
+      ],
+      "expo-asset",
+      "expo-audio",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-status-bar"
+    ]
+  }
+}
