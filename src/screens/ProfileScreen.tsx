@@ -197,6 +197,24 @@ export default function ProfileScreen() {
         })}
       </View>
 
+      {user.role === 'ADMIN' && (
+        <PressableScale
+          onPress={() => navigation.navigate('AdminMissions')}
+          scaleTo={0.98}
+          style={{ paddingVertical: 14, borderRadius: 10, borderWidth: 1, borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,.1)', alignItems: 'center', marginBottom: 12 }}
+        >
+          <OrbitronText weight="700" style={{ fontSize: 13, color: '#A78BFA', letterSpacing: 1 }}>⚙ PAINEL ADMIN</OrbitronText>
+        </PressableScale>
+      )}
+
+      <PressableScale
+        onPress={() => navigation.navigate('BodyMeasurements')}
+        scaleTo={0.98}
+        style={{ paddingVertical: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg1, alignItems: 'center', marginBottom: 12 }}
+      >
+        <OrbitronText weight="700" style={{ fontSize: 13, color: colors.text }}>📏 MEDIDAS CORPORAIS</OrbitronText>
+      </PressableScale>
+
       <PressableScale
         onPress={doLogout}
         scaleTo={0.98}

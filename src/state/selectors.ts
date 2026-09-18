@@ -1,4 +1,4 @@
-import { Rank, RankingScope, SortBy } from './types';
+import { Rank, SortBy } from './types';
 
 export function fmtXp(n: number): string {
   return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n);
@@ -19,6 +19,7 @@ export function longestStreak(raw: number[]): number {
 }
 
 export interface MeRow {
+  hunter_id: string;
   pos: number;
   name: string;
   level: number;
@@ -38,14 +39,15 @@ const SORT_KEY_BY_SORT_BY: Record<SortBy, NumericRankingKey> = {
   Streak: 'streak',
 };
 
+// A escolha de QUAL conjunto de dados usar (ranking global vs. só amigos reais, vindos de
+// /leaderboards/friends) já acontece antes de chamar isso — aqui só junta "eu" na lista e
+// ordena pela aba escolhida. Identifica "eu" por hunter_id, nunca por nome (nomes não são
+// únicos — duas contas podem se chamar igual).
 export function buildRankingRows<
-  T extends Record<NumericRankingKey, number> & { name: string; rank: Rank; title: string }
->(ranking: T[], me: MeRow, friendNames: Set<string>, scope: RankingScope, sortBy: SortBy) {
-  let all: (T | MeRow)[] = [...ranking, me];
-  if (scope === 'friends') {
-    all = all.filter((r) => friendNames.has(r.name) || r.name === me.name);
-  }
+  T extends Record<NumericRankingKey, number> & { hunter_id: string; name: string; rank: Rank; title: string }
+>(ranking: T[], me: MeRow, sortBy: SortBy) {
+  const withoutMe = ranking.filter((r) => r.hunter_id !== me.hunter_id);
+  const all: (T | MeRow)[] = [...withoutMe, me];
   const sortKey = SORT_KEY_BY_SORT_BY[sortBy];
-  const sorted = [...all].sort((a, b) => b[sortKey] - a[sortKey]);
-  return sorted;
+  return [...all].sort((a, b) => b[sortKey] - a[sortKey]);
 }

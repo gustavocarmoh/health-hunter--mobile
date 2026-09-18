@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ScreenListContainer from '../ui/ScreenListContainer';
 import { SectionLabel, OrbitronText, RajdhaniText } from '../ui/Typography';
 import Chip from '../ui/Chip';
@@ -10,14 +12,33 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAppState } from '../state/AppStateContext';
 import { CATEGORY_FILTERS, CATEGORY_FILTER_ALL, CategoryFilter } from '../state/stateConfig';
 import { Mission } from '../state/types';
+import { RootStackParamList } from '../navigation/types';
 import CreateMissionModal from './CreateMissionModal';
+import HydrationModal from './HydrationModal';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function MissionsScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<Nav>();
   const { missions, toggleMission, generateDaily, dailyMissionsLocked } = useAppState();
   const [filter, setFilter] = useState<CategoryFilter>(CATEGORY_FILTER_ALL);
   const [showModal, setShowModal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [hydrationMission, setHydrationMission] = useState<Mission | null>(null);
+
+  const startMissionActivity = (mission: Mission) => {
+    navigation.navigate('AddActivity', {
+      missionId: mission.id,
+      missionName: mission.name,
+      validationType:
+        mission.validation_type === 'GPS_DISTANCE' || mission.validation_type === 'DURATION'
+          ? mission.validation_type
+          : undefined,
+      targetDistanceM: mission.target_distance_m ?? undefined,
+      targetDurationSec: mission.target_duration_sec ?? undefined,
+    });
+  };
 
   const filteredMissions = useMemo(
     () => missions.filter((m) => filter === CATEGORY_FILTER_ALL || m.category === filter),
@@ -90,7 +111,14 @@ export default function MissionsScreen() {
         header={header}
         data={filteredMissions}
         keyExtractor={(m) => String(m.id)}
-        renderItem={({ item }) => <MissionRow mission={item} onToggle={() => toggleMission(item.id)} />}
+        renderItem={({ item }) => (
+          <MissionRow
+            mission={item}
+            onToggle={() => toggleMission(item.id)}
+            onStart={() => startMissionActivity(item)}
+            onHydrate={() => setHydrationMission(item)}
+          />
+        )}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={
           <EmptyState title="Nenhuma missão por aqui" subtitle="Gere missões diárias ou crie uma missão customizada com o botão +" />
@@ -121,6 +149,8 @@ export default function MissionsScreen() {
       </PressableScale>
 
       <CreateMissionModal visible={showModal} onClose={() => setShowModal(false)} /> */}
+
+      <HydrationModal mission={hydrationMission} onClose={() => setHydrationMission(null)} />
     </View>
   );
 }

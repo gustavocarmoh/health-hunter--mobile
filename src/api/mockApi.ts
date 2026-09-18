@@ -86,6 +86,11 @@ export const api = {
       icon: CATEGORY_CONFIG[input.category].icon,
       done: false,
       daily: false,
+      validation_type: 'TRUSTED',
+      target_distance_m: null,
+      target_duration_sec: null,
+      target_amount_ml: null,
+      current_amount_ml: 0,
     });
   },
 
@@ -105,17 +110,20 @@ export const api = {
     return resolveAfter(undefined);
   },
 
-  joinGuild(guild: BrowseGuild, me: { name: string; xp: number }): Promise<{ guild: Guild; guildMembers: GuildMember[] }> {
+  joinGuild(guild: BrowseGuild, me: { id: string; name: string; xp: number }): Promise<{ guild: Guild; guildMembers: GuildMember[] }> {
     return resolveAfter({
       guild: {
+        id: guild.id,
         name: guild.name,
         tag: guild.tag,
         level: guild.level,
         globalRank: Math.max(1, 20 - guild.level),
         totalXp: guild.level * 20000,
         weeklyContribution: 0,
+        myRole: 'MEMBER' as const,
+        contributionRank: 1,
       },
-      guildMembers: [{ name: me.name, role: 'MEMBER' as const, xp: me.xp, isMe: true, avatarColor: '#7C3AED' }],
+      guildMembers: [{ userId: me.id, name: me.name, role: 'MEMBER' as const, xp: me.xp, isMe: true, avatarColor: '#7C3AED' }],
     });
   },
 };

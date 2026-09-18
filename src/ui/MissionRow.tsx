@@ -7,15 +7,42 @@ import { useTheme } from '../theme/ThemeContext';
 import { CATEGORY_CONFIG, DIFFICULTY_CONFIG } from '../state/stateConfig';
 import { Mission } from '../state/types';
 
-export default function MissionRow({ mission, onToggle }: { mission: Mission; onToggle: () => Promise<void> }) {
+export default function MissionRow({
+  mission,
+  onToggle,
+  onStart,
+  onHydrate,
+}: {
+  mission: Mission;
+  onToggle: () => Promise<void>;
+  /** Chamado em vez de onToggle quando a missão é GPS_DISTANCE/DURATION e ainda não foi
+   * concluída — deve levar o usuário para "Iniciar Atividade" em vez de marcar o check direto. */
+  onStart: () => void;
+  /** Chamado em vez de onToggle quando a missão é HYDRATION e ainda não foi concluída — deve
+   * abrir o registro de mL bebidos. */
+  onHydrate: () => void;
+}) {
   const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const diff = DIFFICULTY_CONFIG[mission.difficulty] || DIFFICULTY_CONFIG.EASY;
   const cat = CATEGORY_CONFIG[mission.category] || CATEGORY_CONFIG.CUSTOM;
   const catColor = cat.color;
   const done = mission.done;
+  const needsActivity = mission.validation_type === 'GPS_DISTANCE' || mission.validation_type === 'DURATION';
+  const isHydration = mission.validation_type === 'HYDRATION';
 
-  const handleToggle = async () => {
+  const handlePress = async () => {
+    // Concluída: ainda permite desmarcar via toggle (sempre liberado, qualquer tipo).
+    // Não concluída + precisa de atividade: manda pro fluxo de "Iniciar Atividade".
+    // Não concluída + hidratação: abre o registro de mL.
+    if (!done && needsActivity) {
+      onStart();
+      return;
+    }
+    if (!done && isHydration) {
+      onHydrate();
+      return;
+    }
     setIsLoading(true);
     try {
       await onToggle();
@@ -59,10 +86,15 @@ export default function MissionRow({ mission, onToggle }: { mission: Mission; on
             </OrbitronText>
           </View>
           <RajdhaniText style={{ fontSize: 11, color: colors.dim }}>+{mission.xp} XP</RajdhaniText>
+          {isHydration && !done && mission.target_amount_ml && (
+            <RajdhaniText style={{ fontSize: 11, color: '#38BDF8' }}>
+              💧 {mission.current_amount_ml}/{mission.target_amount_ml}mL
+            </RajdhaniText>
+          )}
         </View>
       </View>
       <PressableScale
-        onPress={handleToggle}
+        onPress={handlePress}
         disabled={isLoading}
         scaleTo={0.85}
         style={{
@@ -70,8 +102,14 @@ export default function MissionRow({ mission, onToggle }: { mission: Mission; on
           height: 44,
           borderRadius: 22,
           borderWidth: 2,
-          borderColor: done ? '#22C55E' : colors.border,
-          backgroundColor: done ? '#22C55E' : colors.bg1,
+          borderColor: done ? '#22C55E' : needsActivity ? '#7C3AED' : isHydration ? '#38BDF8' : colors.border,
+          backgroundColor: done
+            ? '#22C55E'
+            : needsActivity
+              ? 'rgba(124,58,237,.15)'
+              : isHydration
+                ? 'rgba(56,189,248,.15)'
+                : colors.bg1,
           alignItems: 'center',
           justifyContent: 'center',
           shadowColor: '#22C55E',
@@ -86,6 +124,10 @@ export default function MissionRow({ mission, onToggle }: { mission: Mission; on
           <ActivityIndicator size="small" color={done ? '#fff' : colors.dim} />
         ) : done ? (
           <CheckIcon color="#fff" />
+        ) : needsActivity ? (
+          <Text style={{ fontSize: 16, color: '#A78BFA' }}>▶</Text>
+        ) : isHydration ? (
+          <Text style={{ fontSize: 18 }}>💧</Text>
         ) : null}
       </PressableScale>
     </View>

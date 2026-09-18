@@ -1,52 +1,83 @@
 import { httpClient } from './client'
 
+export type GuildRole = 'MASTER' | 'VICE_MASTER' | 'ELITE' | 'MEMBER'
+
 export interface Guild {
   id: string
   name: string
   tag: string
-  level: number
+  description: string | null
+  emblem: string
+  master_id: string
+  rank: string
+  xp: number
   global_rank: number
-  total_xp: number
-  weekly_contribution: number
   member_count: number
-  owner_id: string
+  is_public: boolean
+}
+
+export interface GuildMembership {
+  id: string
+  guild_id: string
+  user_id: string
+  role: GuildRole
+  contribution_xp: number
+  contribution_rank: number | null
 }
 
 export interface GuildMember {
   user_id: string
   name: string
-  role: 'OWNER' | 'OFFICER' | 'MEMBER'
-  rank: string
+  role: GuildRole
   xp: number
-  joined_at: string
+  joined_at?: string
 }
 
-export interface BrowseGuild {
+export interface GuildListItem {
   id: string
   name: string
   tag: string
-  level: number
-  member_count: number
-  color: string
-  description?: string
+  emblem: string
+  rank: string
+  xp: number
+  position: number
+  memberCount: number
+}
+
+export interface GuildLeaderboardEntry {
+  position: number
+  user_id: string
+  name: string
+  rank_level: string
+  role: GuildRole
+  contribution_xp: number
+}
+
+export interface GuildMonster {
+  id: string
+  name: string
+  icon: string
+  max_hp: number
+  current_hp: number
+  is_defeated: boolean
 }
 
 export interface GuildInvite {
-  id: string
-  guild_id: string
-  guild_name: string
-  from_user_id: string
-  from_user_name: string
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  invite_id: string
+  guild: { id: string; name: string; tag: string; emblem: string } | null
+  invited_by_id: string
+  expires_at: string
   created_at: string
 }
 
 const guildsApi = {
-  async getMyGuild(): Promise<Guild> {
-    const response = await httpClient.get<any>('/guilds/my')
-    console.log('📡 GET /guilds/my response:', response.data)
-    // Backend returns { guild, membership }, extract guild
-    return response.data.guild
+  /** Backend retorna { guild, membership } — guild vem com global_rank/member_count,
+   * membership vem com contribution_rank (posição do hunter no ranking interno da guilda). */
+  async getMyGuild(): Promise<{ guild: Guild | null; membership: GuildMembership | null }> {
+    const response = await httpClient.get<{ guild: Guild | null; membership: GuildMembership | null }>(
+      '/guilds/my',
+    )
+    return response.data
   },
 
   async getMembers(): Promise<GuildMember[]> {
@@ -54,22 +85,28 @@ const guildsApi = {
     return response.data
   },
 
-  async browse(page: number = 1, limit: number = 20, search?: string): Promise<{ guilds: BrowseGuild[]; total: number }> {
-    const response = await httpClient.get<any>('/guilds', {
+  /** Monstro coletivo da guilda — dano é automático (XP de atividades/missões de qualquer
+   * membro), não existe ataque manual. Spawna um novo sozinho quando o anterior é derrotado. */
+  async getMonster(): Promise<GuildMonster> {
+    const response = await httpClient.get<GuildMonster>('/guilds/my/monster')
+    return response.data
+  },
+
+  /** GET /guilds já vem ordenado por xp DESC com `position` explícito — é o ranking global
+   * de guildas (não só uma lista de busca). */
+  async browse(page: number = 1, limit: number = 20, search?: string): Promise<{ guilds: GuildListItem[]; total: number }> {
+    const response = await httpClient.get<{ guilds: GuildListItem[]; total: number }>('/guilds', {
       params: { page, limit, search },
     })
-    return {
-      guilds: (response.data.guilds || response.data.data || []).map((g: any) => ({
-        id: g.id,
-        name: g.name,
-        tag: g.tag,
-        level: g.level || 1,
-        member_count: g.member_count || 0,
-        color: '#7C3AED',
-        description: g.description,
-      })),
-      total: response.data.total || 0,
-    }
+    return { guilds: response.data.guilds || [], total: response.data.total || 0 }
+  },
+
+  async getGuildLeaderboard(guildId: string, limit: number = 20): Promise<GuildLeaderboardEntry[]> {
+    const response = await httpClient.get<{ leaderboard: GuildLeaderboardEntry[] }>(
+      `/guilds/${guildId}/leaderboard`,
+      { params: { limit } },
+    )
+    return response.data.leaderboard
   },
 
   async join(guildId: string): Promise<Guild> {
@@ -101,12 +138,18 @@ const guildsApi = {
     }
   },
 
-  async invite(userId: string): Promise<void> {
-    await httpClient.post(`/guilds/my/invite`, { user_id: userId })
+  async invite(guildId: string, userId: string): Promise<void> {
+    await httpClient.post(`/guilds/${guildId}/invite`, { user_id: userId })
   },
 
-  async kick(userId: string): Promise<void> {
-    await httpClient.delete(`/guilds/my/members/${userId}`)
+  async kick(guildId: string, userId: string): Promise<void> {
+    await httpClient.delete(`/guilds/${guildId}/kick/${userId}`)
+  },
+
+  /** MASTER-only. Não aceita 'MASTER' como novo papel — pra isso existe transferência
+   * de liderança, que não foi pedida ainda pelo produto. */
+  async promote(guildId: string, userId: string, role: Exclude<GuildRole, 'MASTER'>): Promise<void> {
+    await httpClient.patch(`/guilds/${guildId}/members/${userId}/role`, { role })
   },
 
   async getInvites(): Promise<GuildInvite[]> {
@@ -114,13 +157,8 @@ const guildsApi = {
     return response.data
   },
 
-  async acceptInvite(guildId: string): Promise<Guild> {
-    const response = await httpClient.post<Guild>(`/guilds/${guildId}/invites/accept`, {})
-    return response.data
-  },
-
-  async rejectInvite(guildId: string): Promise<void> {
-    await httpClient.delete(`/guilds/${guildId}/invites`)
+  async respondToInvite(inviteId: string, accept: boolean): Promise<void> {
+    await httpClient.post(`/guilds/invites/${inviteId}/respond`, { accept })
   },
 }
 

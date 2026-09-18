@@ -33,6 +33,12 @@
           "photosPermission": "Permita acesso às fotos para personalizar seu avatar de Hunter."
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permita acesso à localização para rastrear a distância percorrida durante a atividade."
+        }
+      ],
       "expo-asset",
       "expo-audio",
       "expo-font",

@@ -31,6 +31,8 @@ import {
   ONBOARDING_STEPS,
 } from './data';
 import { api, calculateLevelFromXp } from '../api/api';
+import missionsApi from '../api/missions';
+import { getErrorMessage } from '../api/errors';
 import { debugBootstrap } from '../utils/debugBootstrap';
 
 interface Toast {
@@ -98,6 +100,7 @@ interface AppStateContextValue extends AppState {
   toggleHaptics: () => void;
   toggleNotifications: () => void;
   toggleMission: (id: string) => Promise<void>;
+  logHydration: (id: string, amountMl: number) => Promise<void>;
   addMission: (m: { name: string; category: Mission['category']; difficulty: Difficulty }) => void;
   generateDaily: () => Promise<boolean>;
   saveName: (name: string) => void;
@@ -402,6 +405,52 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [missions, showToast, showAchievementUnlock, triggerLevelUp]);
 
+  const logHydration = useCallback(async (id: string, amountMl: number): Promise<void> => {
+    const target = missions.find((m) => m.id === id);
+    if (!target) return;
+
+    try {
+      const result = await missionsApi.addHydration(id, amountMl);
+
+      setMissions((prevMissions) =>
+        prevMissions.map((m) =>
+          m.id === id ? { ...m, current_amount_ml: result.current_amount_ml, done: result.done } : m
+        )
+      );
+
+      if (!result.done) {
+        showToast(`💧 +${amountMl}mL registrados`);
+        return;
+      }
+
+      showToast(`+${target.xp} XP ganho!`, 'xp');
+      const updatedUser = await api.auth.getMe();
+
+      setUser((prevUser) => {
+        const newXp = updatedUser.xp || prevUser.xp;
+        let nextUser = { ...prevUser, xp: newXp };
+
+        setAchievements((prevAch) => {
+          const toUnlock = prevAch.find((a) => !a.unlocked && a.unlockAt && newXp >= a.unlockAt);
+          if (!toUnlock) return prevAch;
+          setTimeout(() => showAchievementUnlock(toUnlock), 700);
+          return prevAch.map((a) => (a.id === toUnlock.id ? { ...a, unlocked: true } : a));
+        });
+
+        const { level: newLevel, xpToNext: newXpToNext, xpInCurrentLevel: newXpInCurrentLevel } = calculateLevelFromXp(newXp);
+        if (newLevel > prevUser.level) {
+          nextUser = { ...nextUser, level: newLevel, xpToNext: newXpToNext, xpInCurrentLevel: newXpInCurrentLevel };
+          setTimeout(() => triggerLevelUp(newLevel), 300);
+        } else {
+          nextUser = { ...nextUser, xpInCurrentLevel: newXpInCurrentLevel };
+        }
+        return nextUser;
+      });
+    } catch (err) {
+      showToast(getErrorMessage(err), 'error');
+    }
+  }, [missions, showToast, showAchievementUnlock, triggerLevelUp]);
+
   const addMission = useCallback((m: { name: string; category: Mission['category']; difficulty: Difficulty }) => {
     api.createMission(m).then((newMission) => {
       setMissions((prev) => [...prev, newMission]);
@@ -514,12 +563,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const joinGuild = useCallback((g: BrowseGuild) => {
-    api.joinGuild(g, { name: user.name, xp: user.xp }).then((result) => {
+    api.joinGuild(g, { id: user.id }).then((result) => {
       setGuild(result.guild);
       setGuildMembers(result.guildMembers);
       showToast(`Você entrou em ${g.name}!`);
     });
-  }, [user.name, user.xp, showToast]);
+  }, [user.id, showToast]);
 
   const leaveGuild = useCallback(async () => {
     try {
@@ -599,6 +648,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       toggleHaptics,
       toggleNotifications,
       toggleMission,
+      logHydration,
       addMission,
       generateDaily,
       saveName,
@@ -623,7 +673,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       streakHistoryRaw, streakFreezes, streakProtected, avatarUri, toast, showOnboarding,
       onboardingStep, confetti, unlockedAchievement, dailyMissionsLocked, isBootstrapped, bootstrapError, retryBootstrap,
       showToast, toggleSound, toggleHaptics,
-      toggleNotifications, toggleMission, addMission, generateDaily, saveName, registerHunter,
+      toggleNotifications, toggleMission, logHydration, addMission, generateDaily, saveName, registerHunter,
       refreshDashboard, useStreakFreeze, toggleEvent, toggleChallenge, joinGuild, leaveGuild,
       setAvatarUri, deactivateAccount, nextOnboarding, skipOnboarding, startOnboarding, dismissUnlockPopup, setUser_External,
     ]

@@ -15,6 +15,8 @@ import { useTheme } from '../theme/ThemeContext';
 import { useAppState } from '../state/AppStateContext';
 import { fmtXp, xpPercent } from '../state/selectors';
 import { RootStackParamList } from '../navigation/types';
+import { Mission } from '../state/types';
+import HydrationModal from './HydrationModal';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,6 +25,7 @@ export default function DashboardScreen() {
   const navigation = useNavigation<Nav>();
   const { user, guild, missions, toggleMission, streakFreezes, streakProtected, useStreakFreeze, refreshDashboard } = useAppState();
   const [refreshing, setRefreshing] = useState(false);
+  const [hydrationMission, setHydrationMission] = useState<Mission | null>(null);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -47,6 +50,7 @@ export default function DashboardScreen() {
     { key: 'Challenges', label: 'Desafios', icon: <StarIcon color="#FBBF24" /> },
     { key: 'Friends', label: 'Amigos', icon: <PeopleIcon /> },
     { key: 'Guild', label: 'Guilda', icon: <ShieldIcon /> },
+    { key: 'AiChat', label: 'Mentor IA', icon: <RajdhaniText style={{ fontSize: 17 }}>🤖</RajdhaniText> },
   ];
 
   const header = (
@@ -155,9 +159,28 @@ export default function DashboardScreen() {
     <ScreenContainer header={header} refreshing={refreshing} onRefresh={onRefresh}>
       <View style={{ gap: 10 }}>
         {dailyMissions.map((m) => (
-          <MissionRow key={m.id} mission={m} onToggle={() => toggleMission(m.id)} />
+          <MissionRow
+            key={m.id}
+            mission={m}
+            onToggle={() => toggleMission(m.id)}
+            onStart={() =>
+              navigation.navigate('AddActivity', {
+                missionId: m.id,
+                missionName: m.name,
+                validationType:
+                  m.validation_type === 'GPS_DISTANCE' || m.validation_type === 'DURATION'
+                    ? m.validation_type
+                    : undefined,
+                targetDistanceM: m.target_distance_m ?? undefined,
+                targetDurationSec: m.target_duration_sec ?? undefined,
+              })
+            }
+            onHydrate={() => setHydrationMission(m)}
+          />
         ))}
       </View>
+
+      <HydrationModal mission={hydrationMission} onClose={() => setHydrationMission(null)} />
     </ScreenContainer>
   );
 }

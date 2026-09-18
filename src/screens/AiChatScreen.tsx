@@ -36,7 +36,7 @@ export default function AiChatScreen({ navigation }: Props) {
       id: '0',
       role: 'assistant',
       content:
-        '🤖 Olá, caçador! Sou seu mentor de IA do Health Hunter.\n\nSou um assistente alimentado por Ollama rodando localmente em seu servidor.\n\nComo posso ajudá-lo com seu treino hoje? 🎯',
+        '🤖 Olá, caçador! Sou seu mentor de IA do Health Hunter.\n\nPosso te ajudar com dicas de treino, nutrição e dúvidas sobre o app, sempre levando em conta seu perfil e histórico de atividades.\n\nComo posso ajudá-lo com seu treino hoje? 🎯',
     },
   ])
   const [input, setInput] = useState('')
@@ -142,12 +142,12 @@ export default function AiChatScreen({ navigation }: Props) {
               }}
             >
               <RajdhaniText weight="700" style={{ fontSize: 9, color: '#fff', letterSpacing: 0.5 }}>
-                OLLAMA
+                GEMINI
               </RajdhaniText>
             </View>
           </View>
           <RajdhaniText style={{ fontSize: 11, color: colors.muted }}>
-            Assistente IA local • Respostas em tempo real
+            Conhece seu perfil e treinos • Respostas em tempo real
           </RajdhaniText>
         </View>
 

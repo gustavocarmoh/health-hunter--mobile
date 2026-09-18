@@ -21,6 +21,7 @@ export const ONBOARDING_STEPS: OnboardingStepData[] = [
 
 // All initial data now comes from backend via fetchBootstrap()
 export const INITIAL_USER: UserState = {
+  id: '',
   name: 'Hunter',
   level: 1,
   rank: 'E',
@@ -32,6 +33,7 @@ export const INITIAL_USER: UserState = {
   achievementsCount: 0,
   statPointsAvailable: 0,
   stats: { strength: 0, intel: 0, vitality: 0, sense: 0, agility: 0 },
+  role: 'USER',
 };
 
 export const INITIAL_MISSIONS: Mission[] = [];
@@ -39,12 +41,15 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [];
 export const INITIAL_RANKING: RankingEntry[] = [];
 
 export const INITIAL_GUILD: Guild = {
+  id: '',
   name: 'Sem Guilda',
   tag: '-',
   level: 0,
   globalRank: 0,
   totalXp: 0,
   weeklyContribution: 0,
+  myRole: 'MEMBER',
+  contributionRank: null,
 };
 
 export const INITIAL_GUILD_MEMBERS: GuildMember[] = [];

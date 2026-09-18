@@ -4,38 +4,51 @@ export interface Challenge {
   id: string
   title: string
   description: string
-  goal: string
-  target: number
+  tipo_exercicio: string
+  xp_base: number
+  coins_base: number
+  min_rank_required: string
+  is_active: boolean
+  target_count: number
+}
+
+export type ChallengeParticipationStatus = 'ACTIVE' | 'COMPLETED' | 'ABANDONED'
+
+export interface ChallengeParticipation {
+  id: string
+  challenge_id: string
+  user_id: string
+  status: ChallengeParticipationStatus
   progress: number
-  xp_reward: number
-  joined: boolean
-  completed: boolean
-  deadline?: string
+  joined_at: string
+  completed_at: string | null
+  challenge: Challenge | null
 }
 
 const challengesApi = {
-  async getAll(): Promise<Challenge[]> {
+  /** Desafios disponíveis pro rank do hunter — não diz se ele já entrou ou não. */
+  async getAvailable(): Promise<Challenge[]> {
     const response = await httpClient.get<Challenge[]>('/challenges')
     return response.data
   },
 
-  async getById(id: string): Promise<Challenge> {
-    const response = await httpClient.get<Challenge>(`/challenges/${id}`)
+  /** Desafios em que o hunter já está inscrito (ACTIVE/COMPLETED/ABANDONED), com progresso real. */
+  async getMine(): Promise<{ total: number; participations: ChallengeParticipation[] }> {
+    const response = await httpClient.get<{ total: number; participations: ChallengeParticipation[] }>(
+      '/challenges/my',
+    )
     return response.data
   },
 
-  async join(id: string): Promise<Challenge> {
-    const response = await httpClient.post<Challenge>(`/challenges/${id}/join`, {})
+  async join(id: string): Promise<ChallengeParticipation> {
+    const response = await httpClient.post<ChallengeParticipation>(`/challenges/${id}/join`, {})
     return response.data
   },
 
-  async leave(id: string): Promise<void> {
-    await httpClient.post(`/challenges/${id}/leave`, {})
-  },
-
-  async updateProgress(id: string, progress: number): Promise<Challenge> {
-    const response = await httpClient.patch<Challenge>(`/challenges/${id}`, { progress })
-    return response.data
+  /** Rota real é "abandon", não "leave" — o progresso é automático via missões, não há mais
+   * conclusão manual pelo app (isso acontece sozinho ao bater a meta de missões). */
+  async abandon(id: string): Promise<void> {
+    await httpClient.patch(`/challenges/${id}/abandon`, {})
   },
 }
 

@@ -2,6 +2,8 @@ import { Category, Difficulty, GuildRole, PlayerStatKey, Rank, Rarity, RankingSc
 
 export type { Category, Difficulty, GuildRole, PlayerStatKey, Rank, Rarity, RankingScope, SortBy, ToastKind };
 
+export type MissionValidationType = 'TRUSTED' | 'GPS_DISTANCE' | 'DURATION' | 'HYDRATION';
+
 export interface Mission {
   id: string;
   name: string;
@@ -11,7 +13,17 @@ export interface Mission {
   icon: string;
   done: boolean;
   daily: boolean;
+  /** 'TRUSTED' = toggle livre (honor system). 'GPS_DISTANCE'/'DURATION' só concluem via
+   * "Iniciar Atividade", validado pelo backend com uma atividade rastreada de verdade.
+   * 'HYDRATION' conclui sozinha quando a soma dos registros de água bate a meta. */
+  validation_type: MissionValidationType;
+  target_distance_m: number | null;
+  target_duration_sec: number | null;
+  target_amount_ml: number | null;
+  current_amount_ml: number;
 }
+
+export type AchievementConditionType = 'ACTIVITIES_COUNT' | 'DISTANCE_KM' | 'RANK_REACHED';
 
 export interface Achievement {
   id: number;
@@ -22,9 +34,14 @@ export interface Achievement {
   unlocked: boolean;
   icon: string;
   unlockAt?: number;
+  conditionType: AchievementConditionType;
+  currentValue: number;
+  targetValue: number;
+  progressPct: number;
 }
 
 export interface RankingEntry {
+  hunter_id: string;
   pos: number;
   name: string;
   level: number;
@@ -36,6 +53,7 @@ export interface RankingEntry {
 }
 
 export interface GuildMember {
+  userId: string;
   name: string;
   role: GuildRole;
   xp: number;
@@ -44,12 +62,15 @@ export interface GuildMember {
 }
 
 export interface Guild {
+  id: string;
   name: string;
   tag: string;
   level: number;
   globalRank: number;
   totalXp: number;
   weeklyContribution: number;
+  myRole: GuildRole;
+  contributionRank: number | null;
 }
 
 export interface BrowseGuild {
@@ -59,6 +80,8 @@ export interface BrowseGuild {
   level: number;
   memberCount: number;
   color: string;
+  position: number;
+  xp: number;
 }
 
 export interface EventItem {
@@ -91,6 +114,7 @@ export interface FeedItemData {
 }
 
 export interface UserState {
+  id: string;
   name: string;
   level: number;
   rank: Rank;
@@ -102,6 +126,8 @@ export interface UserState {
   achievementsCount: number;
   stats: Record<PlayerStatKey, number>;
   statPointsAvailable: number;
+  /** 'ADMIN' | 'USER' — vindo de /auth/me. Controla a visibilidade do painel admin. */
+  role: string;
 }
 
 export interface OnboardingStepData {

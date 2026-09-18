@@ -20,11 +20,21 @@ export type RootStackParamList = {
   Feed: undefined;
   Guild: undefined;
   GuildBrowse: undefined;
+  GuildRanking: undefined;
   CreateGuild: undefined;
   AiChat: undefined;
   Friends: undefined;
   AddFriend: undefined;
-  AddActivity: undefined;
+  AddActivity: {
+    missionId?: string;
+    missionName?: string;
+    validationType?: 'GPS_DISTANCE' | 'DURATION';
+    targetDistanceM?: number;
+    targetDurationSec?: number;
+  } | undefined;
+  AdminMissions: undefined;
+  BodyMeasurements: undefined;
+  PublicProfile: { userId: string; name?: string };
 };
 
 declare global {

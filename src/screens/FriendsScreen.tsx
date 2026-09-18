@@ -52,7 +52,9 @@ export default function FriendsScreen({ navigation }: Props) {
   }
 
   const renderFriend = ({ item }: { item: Friend }) => (
-    <View
+    <PressableScale
+      onPress={() => navigation.navigate('PublicProfile', { userId: item.id, name: item.name })}
+      scaleTo={0.98}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -127,7 +129,7 @@ export default function FriendsScreen({ navigation }: Props) {
           </OrbitronText>
         )}
       </PressableScale>
-    </View>
+    </PressableScale>
   )
 
   return (

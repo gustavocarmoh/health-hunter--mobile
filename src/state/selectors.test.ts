@@ -41,34 +41,37 @@ describe('longestStreak', () => {
 
 describe('buildRankingRows', () => {
   const ranking: RankingEntry[] = [
-    { pos: 1, name: 'A', level: 10, rank: 'S', xp: 100, title: 'A', missions: 5, streak: 2 },
-    { pos: 2, name: 'B', level: 20, rank: 'A', xp: 50, title: 'B', missions: 20, streak: 9 },
+    { hunter_id: 'a', pos: 1, name: 'A', level: 10, rank: 'S', xp: 100, title: 'A', missions: 5, streak: 2 },
+    { hunter_id: 'b', pos: 2, name: 'B', level: 20, rank: 'A', xp: 50, title: 'B', missions: 20, streak: 9 },
   ];
-  const me: MeRow = { pos: 3, name: 'Me', level: 15, rank: 'B', xp: 75, title: 'Me', missions: 10, streak: 5 };
-  const friendNames = new Set(['B']);
+  const me: MeRow = { hunter_id: 'me', pos: 3, name: 'Me', level: 15, rank: 'B', xp: 75, title: 'Me', missions: 10, streak: 5 };
 
   it('sorts by xp descending by default', () => {
-    const rows = buildRankingRows(ranking, me, new Set(), 'global', 'XP');
+    const rows = buildRankingRows(ranking, me, 'XP');
     expect(rows.map((r) => r.name)).toEqual(['A', 'Me', 'B']);
   });
 
   it('sorts by level when SortBy is Level', () => {
-    const rows = buildRankingRows(ranking, me, new Set(), 'global', 'Level');
+    const rows = buildRankingRows(ranking, me, 'Level');
     expect(rows.map((r) => r.name)).toEqual(['B', 'Me', 'A']);
   });
 
   it('sorts by missions when SortBy is Missions', () => {
-    const rows = buildRankingRows(ranking, me, new Set(), 'global', 'Missions');
+    const rows = buildRankingRows(ranking, me, 'Missions');
     expect(rows.map((r) => r.name)).toEqual(['B', 'Me', 'A']);
   });
 
   it('sorts by streak when SortBy is Streak', () => {
-    const rows = buildRankingRows(ranking, me, new Set(), 'global', 'Streak');
+    const rows = buildRankingRows(ranking, me, 'Streak');
     expect(rows.map((r) => r.name)).toEqual(['B', 'Me', 'A']);
   });
 
-  it('filters to only friends (plus me) when scope is friends', () => {
-    const rows = buildRankingRows(ranking, me, friendNames, 'friends', 'XP');
-    expect(rows.map((r) => r.name).sort()).toEqual(['B', 'Me']);
+  it('deduplicates when a ranking row shares the hunter_id with "me"', () => {
+    const rankingWithMe: RankingEntry[] = [
+      ...ranking,
+      { hunter_id: 'me', pos: 4, name: 'Duplicate Name', level: 1, rank: 'E', xp: 999999, title: '', missions: 0, streak: 0 },
+    ];
+    const rows = buildRankingRows(rankingWithMe, me, 'XP');
+    expect(rows.filter((r) => r.hunter_id === 'me')).toHaveLength(1);
   });
 });

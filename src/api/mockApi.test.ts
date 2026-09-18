@@ -27,8 +27,8 @@ describe('api.generateDailyMissions', () => {
 describe('api.joinGuild', () => {
   it('builds a guild record and a single-member roster for the joining hunter', async () => {
     const result = await api.joinGuild(
-      { id: 'guild-1', name: 'Knights of Rune', tag: 'KOR', level: 15, memberCount: 42, color: '#EF4444' },
-      { name: 'SungJinWoo_Jr', xp: 12400 }
+      { id: 'guild-1', name: 'Knights of Rune', tag: 'KOR', level: 15, memberCount: 42, color: '#EF4444', position: 5, xp: 300000 },
+      { id: 'user-1', name: 'SungJinWoo_Jr', xp: 12400 }
     );
     expect(result.guild.name).toBe('Knights of Rune');
     expect(result.guild.globalRank).toBe(5); // max(1, 20 - 15)

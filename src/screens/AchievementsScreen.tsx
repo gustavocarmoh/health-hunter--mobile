@@ -6,8 +6,20 @@ import { SectionLabel, OrbitronText, RajdhaniText } from '../ui/Typography';
 import ProgressBar from '../ui/ProgressBar';
 import { useTheme } from '../theme/ThemeContext';
 import { useAppState } from '../state/AppStateContext';
-import { RARITY_CONFIG } from '../state/stateConfig';
+import { RARITY_CONFIG, RANKS } from '../state/stateConfig';
 import { Achievement } from '../state/types';
+
+function progressLabel(a: Achievement): string {
+  switch (a.conditionType) {
+    case 'DISTANCE_KM':
+      return `${a.currentValue}/${a.targetValue} km`;
+    case 'RANK_REACHED':
+      return `Rank ${RANKS[a.currentValue] ?? '?'} → ${RANKS[a.targetValue] ?? '?'}`;
+    case 'ACTIVITIES_COUNT':
+    default:
+      return `${a.currentValue}/${a.targetValue} atividades`;
+  }
+}
 
 export default function AchievementsScreen() {
   const { colors } = useTheme();
@@ -72,6 +84,12 @@ export default function AchievementsScreen() {
             <RajdhaniText style={{ fontSize: 11, color: colors.muted, lineHeight: 15, minHeight: 30 }}>
               {a.unlocked ? a.desc : `🔒 ${a.desc}`}
             </RajdhaniText>
+            {!a.unlocked && (
+              <View style={{ gap: 4 }}>
+                <ProgressBar percent={a.progressPct} colors={[rc.color, rc.color]} animated={false} />
+                <RajdhaniText style={{ fontSize: 10, color: colors.dim }}>{progressLabel(a)}</RajdhaniText>
+              </View>
+            )}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
               <View style={{ backgroundColor: rc.bg, borderRadius: 5, paddingVertical: 2, paddingHorizontal: 7 }}>
                 <OrbitronText weight="800" style={{ fontSize: 9, color: rc.color }}>{a.rarity}</OrbitronText>
