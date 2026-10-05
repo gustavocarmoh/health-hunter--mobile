@@ -16,7 +16,46 @@ export interface HunterSearchResult {
   xp: number
 }
 
+export interface PrivacyPolicy {
+  version: string
+  controller: string
+  dpo: { name: string; email: string }
+  data_collected: Array<{
+    category: string
+    purpose: string
+    legal_basis: string
+    retention: string
+  }>
+  rights: string[]
+  incident_notice: string
+}
+
 const huntersApi = {
+  async getPrivacyPolicy(): Promise<PrivacyPolicy> {
+    const response = await httpClient.get<PrivacyPolicy>('/privacy')
+    return response.data
+  },
+
+  // LGPD art. 8º, §5º: concede ou revoga consentimentos específicos
+  async updateConsents(consents: {
+    consent_health_data?: boolean
+    consent_ai_mentor?: boolean
+  }): Promise<{ consent_health_data: boolean; consent_ai_mentor: boolean }> {
+    const response = await httpClient.patch('/hunters/consents', consents)
+    return response.data
+  },
+
+  // LGPD art. 18: portabilidade dos dados do titular
+  async exportData(): Promise<Record<string, unknown>> {
+    const response = await httpClient.get<Record<string, unknown>>('/hunters/data-export')
+    return response.data
+  },
+
+  // LGPD art. 18, VI: anonimização e eliminação
+  async deleteAccount(): Promise<void> {
+    await httpClient.delete('/hunters/account')
+  },
+
   async search(query: string, limit: number = 20): Promise<HunterSearchResult[]> {
     const response = await httpClient.get<{ results: HunterSearchResult[] }>('/hunters/search', {
       params: { q: query, limit },

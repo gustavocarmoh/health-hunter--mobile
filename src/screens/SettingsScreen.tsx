@@ -1,5 +1,6 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Share, Text, View } from 'react-native';
+import { CommonActions, useNavigation } from '@react-navigation/native';
 import ScreenContainer from '../ui/ScreenContainer';
 import ScreenHeader from '../ui/ScreenHeader';
 import { SectionLabel, OrbitronText, RajdhaniText } from '../ui/Typography';
@@ -7,6 +8,9 @@ import ToggleSwitch from '../ui/ToggleSwitch';
 import PressableScale from '../ui/PressableScale';
 import { useTheme } from '../theme/ThemeContext';
 import { useAppState } from '../state/AppStateContext';
+import authApi from '../api/auth';
+import huntersApi from '../api/hunters';
+import { getErrorMessage } from '../api/errors';
 
 const NOTIF_PREVIEWS = (streak: number) => [
   { icon: '🏆', time: 'agora', title: 'Conquista desbloqueada!', body: 'Você desbloqueou "Rank C Alcançado" (+150 XP)' },
@@ -44,6 +48,71 @@ export default function SettingsScreen() {
   } = useAppState();
 
   const previews = NOTIF_PREVIEWS(user.streak);
+  const navigation = useNavigation();
+  const [consents, setConsents] = useState({ consent_health_data: false, consent_ai_mentor: false });
+
+  useEffect(() => {
+    authApi.getMe().then((me) => setConsents({
+      consent_health_data: !!me.consent_health_data,
+      consent_ai_mentor: !!me.consent_ai_mentor,
+    })).catch(() => {});
+  }, []);
+
+  const toggleConsent = async (key: 'consent_health_data' | 'consent_ai_mentor') => {
+    const next = !consents[key];
+    setConsents((c) => ({ ...c, [key]: next }));
+    try {
+      await huntersApi.updateConsents({ [key]: next });
+    } catch (err) {
+      setConsents((c) => ({ ...c, [key]: !next }));
+      showToast(getErrorMessage(err), 'error');
+    }
+  };
+  const { showToast } = useAppState();
+
+  const exportData = async () => {
+    try {
+      const data = await huntersApi.exportData();
+      await Share.share({ title: 'Meus dados — Health Hunter', message: JSON.stringify(data, null, 2) });
+    } catch (err) {
+      showToast(getErrorMessage(err), 'error');
+    }
+  };
+
+  const showPolicy = async () => {
+    try {
+      const p = await huntersApi.getPrivacyPolicy();
+      Alert.alert(
+        `Política de Privacidade v${p.version}`,
+        `${p.data_collected.map((d) => `• ${d.category}: ${d.purpose}`).join('\n')}\n\nSeus direitos:\n${p.rights.join('\n')}\n\nDPO: ${p.dpo.email}`,
+      );
+    } catch (err) {
+      showToast(getErrorMessage(err), 'error');
+    }
+  };
+
+  const deleteAccount = () => {
+    Alert.alert(
+      'Excluir conta',
+      'Seus dados pessoais serão anonimizados e suas conversas com a IA apagadas. Esta ação não pode ser desfeita.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await huntersApi.deleteAccount();
+              await authApi.logout();
+              navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Landing' as never }] }));
+            } catch (err) {
+              showToast(getErrorMessage(err), 'error');
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScreenContainer>
@@ -93,6 +162,24 @@ export default function SettingsScreen() {
       <View style={{ backgroundColor: colors.bg1, borderRadius: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
         <RajdhaniText style={{ fontSize: 13, color: colors.muted }}>Versão</RajdhaniText>
         <RajdhaniText style={{ fontSize: 13, color: colors.text }}>1.0.0 (Entrega 2)</RajdhaniText>
+      </View>
+
+      <SectionLabel color={colors.dim} style={{ fontSize: 11, letterSpacing: 2, marginTop: 24, marginBottom: 10 }}>PRIVACIDADE (LGPD)</SectionLabel>
+      <View style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 10 }}>
+        <SettingsRow title="Dados de saúde" subtitle="Permite registrar medidas corporais" value={consents.consent_health_data} onToggle={() => toggleConsent('consent_health_data')} />
+        <View style={{ height: 1, backgroundColor: colors.bg0 }} />
+        <SettingsRow title="Mentor de IA" subtitle="Mensagens enviadas ao Google Gemini" value={consents.consent_ai_mentor} onToggle={() => toggleConsent('consent_ai_mentor')} last />
+      </View>
+      <View style={{ gap: 8 }}>
+        <PressableScale onPress={showPolicy} scaleTo={0.97} style={{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg1, alignItems: 'center' }}>
+          <OrbitronText weight="700" style={{ fontSize: 11, color: colors.text }}>POLÍTICA DE PRIVACIDADE</OrbitronText>
+        </PressableScale>
+        <PressableScale onPress={exportData} scaleTo={0.97} style={{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg1, alignItems: 'center' }}>
+          <OrbitronText weight="700" style={{ fontSize: 11, color: colors.text }}>EXPORTAR MEUS DADOS</OrbitronText>
+        </PressableScale>
+        <PressableScale onPress={deleteAccount} scaleTo={0.97} style={{ padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#EF4444', backgroundColor: colors.bg1, alignItems: 'center' }}>
+          <OrbitronText weight="700" style={{ fontSize: 11, color: '#EF4444' }}>EXCLUIR MINHA CONTA</OrbitronText>
+        </PressableScale>
       </View>
 
       <PressableScale

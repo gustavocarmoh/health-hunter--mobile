@@ -14,13 +14,25 @@ export function getErrorMessage(error: unknown): string {
 
     // Server returned an error
     const status = error.response.status
-    const message = error.response.data?.message || error.response.data?.error
+    const raw = error.response.data?.message || error.response.data?.error
+    // class-validator devolve um array de mensagens
+    const message = Array.isArray(raw) ? raw.join(' ') : raw
+
+    if (status === 429) {
+      return message || 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
+    }
+    if (status === 422) {
+      return message || 'Dados inválidos. Verifique os campos.'
+    }
 
     if (status === 400) {
       return message || 'Dados inválidos. Verifique os campos.'
     }
     if (status === 401) {
       return 'Sessão expirada. Faça login novamente.'
+    }
+    if (status === 403 && error.response.data?.error === 'ConsentRequired') {
+      return 'Ative este recurso em Configurações → Privacidade para continuar.'
     }
     if (status === 403) {
       return 'Você não tem permissão para essa ação.'

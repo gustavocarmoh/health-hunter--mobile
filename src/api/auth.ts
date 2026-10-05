@@ -10,6 +10,9 @@ export interface RegisterRequest {
   email: string
   password: string
   name: string
+  accepted_terms: boolean
+  consent_health_data?: boolean
+  consent_ai_mentor?: boolean
 }
 
 export interface AuthResponse {
@@ -41,6 +44,8 @@ export interface MeResponse {
   agility: number
   avatar_url?: string | null
   bio?: string
+  consent_health_data?: boolean
+  consent_ai_mentor?: boolean
 }
 
 const authApi = {

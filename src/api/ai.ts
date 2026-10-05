@@ -96,6 +96,9 @@ const aiApi = {
 
     if (!response.ok) {
       const error = await response.json()
+      if (error.error === 'ConsentRequired') {
+        throw new Error('Ative o Mentor de IA em Configurações → Privacidade para conversar.')
+      }
       throw new Error(error.message || 'Erro ao enviar mensagem')
     }
 

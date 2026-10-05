@@ -2,9 +2,9 @@ import axios, { AxiosInstance, AxiosError } from 'axios'
 import { TokenStorage } from './tokenStorage'
 import { authHandler } from './authHandler'
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.18.35:3000'
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000'
 
-console.log('🌐 API URL:', API_URL)
+if (__DEV__) console.log('🌐 API URL:', API_URL)
 
 class ApiClient {
   private client: AxiosInstance
@@ -26,13 +26,13 @@ class ApiClient {
     // Interceptor de request — adiciona Bearer token
     this.client.interceptors.request.use(
       async (config) => {
-        console.log('🔐 Request interceptor:', config.method?.toUpperCase(), config.url)
+        if (__DEV__) console.log('🔐 Request interceptor:', config.method?.toUpperCase(), config.url)
         const token = await TokenStorage.getAccessToken()
-        console.log('🔐 Token retrieved:', !!token)
+        if (__DEV__) console.log('🔐 Token retrieved:', !!token)
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
-        console.log('🔐 Request ready to send')
+        if (__DEV__) console.log('🔐 Request ready to send')
         return config
       },
       (error) => {
@@ -44,7 +44,7 @@ class ApiClient {
     // Interceptor de response — trata 401 com refresh
     this.client.interceptors.response.use(
       (response) => {
-        console.log('✅ Response:', response.status, response.config.method?.toUpperCase(), response.config.url)
+        if (__DEV__) console.log('✅ Response:', response.status, response.config.method?.toUpperCase(), response.config.url)
         return response
       },
       async (error: AxiosError) => {

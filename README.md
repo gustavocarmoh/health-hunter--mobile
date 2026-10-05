@@ -134,7 +134,8 @@ src/
 ## 🎯 Endpoints Integrados
 
 ### Autenticação
-- `POST /auth/register` — Registrar nova conta
+- `POST /auth/register` — Registrar nova conta (exige `accepted_terms: true`)
+- `GET /privacy`, `GET /hunters/data-export`, `DELETE /hunters/account` — LGPD (tela Settings → Privacidade)
 - `POST /auth/login` — Login (retorna access_token + refresh_token)
 - `POST /auth/refresh-token` — Renovar token expirado
 - `GET /auth/me` — Validar token + obter dados do usuário
